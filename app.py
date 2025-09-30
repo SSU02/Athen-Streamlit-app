@@ -1,5 +1,5 @@
 import streamlit as st
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, AzureChatOpenAI
 from langchain_core.tools import tool
 from langchain.agents import create_openai_functions_agent, AgentExecutor
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -744,7 +744,7 @@ def get_project_status_details(status: str = "all") -> str:
 # LLM Agent Setup
 # ---------------------------------------
 def create_agent():
-    """Create LangChain agent with updated tools"""
+    """Create LangChain agent with Azure OpenAI"""
     system_prompt = """You are an intelligent HR and Project Management assistant with access to comprehensive database insights and analytics.
 
 Your Tools:
@@ -760,7 +760,6 @@ Database Insights Available:
 - Resource Utilization: How well users are utilizing their 40-hour work weeks
 - Resource Allocation: How users are allocated across projects (under/over/fully allocated)
 
-
 Provide actionable insights and recommendations based on the data."""
 
     prompt = ChatPromptTemplate.from_messages([
@@ -770,13 +769,22 @@ Provide actionable insights and recommendations based on the data."""
         MessagesPlaceholder(variable_name="agent_scratchpad")
     ])
 
-    llm = ChatOpenAI(
-        model="gpt-4o-mini",
-        temperature=0.1,
-        api_key=st.secrets.get("OPENAI_API_KEY", "YOUR_API_KEY_HERE")
+    # Azure OpenAI Configuration
+    llm = AzureChatOpenAI(
+        azure_endpoint=st.secrets["azure_openai"]["endpoint"],  
+        api_key=st.secrets["azure_openai"]["api_key"],
+        api_version=st.secrets["azure_openai"]["api_version"],  
+        deployment_name=st.secrets["azure_openai"]["deployment_name"],  
+        temperature=0.1
     )
     
-    tools = [find_users_for_project, get_project_overrun_details, get_resource_utilization_details, get_resource_allocation_details, get_project_status_details]
+    tools = [
+        find_users_for_project, 
+        get_project_overrun_details, 
+        get_resource_utilization_details, 
+        get_resource_allocation_details, 
+        get_project_status_details
+    ]
     agent = create_openai_functions_agent(llm, tools, prompt)
     
     agent_executor = AgentExecutor(
@@ -922,8 +930,7 @@ def display_response_data(data):
         display_utilization_details(data)
     elif "allocation_data" in data:
         display_allocation_details(data)
-    elif "projects" in data and "projects_by_status" in data:
-        display_project_status_details(data)
+
 
 def display_user_recommendations(data):
     """Display user recommendations"""
